@@ -1,0 +1,9 @@
+[project]
+name = "anilistpython"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "gql[all]>=3.5.3",
+    "loguru>=0.7.3",
+]
