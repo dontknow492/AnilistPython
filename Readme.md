@@ -1,6 +1,6 @@
 # AnilistPython
 
-A Python client library for interacting with the AniList GraphQL API to fetch and search anime and manga data, including recommendations and relations.
+A fully Async Python client library for interacting with the AniList GraphQL API to fetch and search anime and manga data, including recommendations and relations.
 
 ## Features
 
