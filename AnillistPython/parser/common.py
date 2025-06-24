@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from models import AnilistCharacter
+from AnillistPython.models import AnilistCharacter
 
 def parse_date(date_dict: Optional[dict]) -> Optional[datetime]:
     if not date_dict:
