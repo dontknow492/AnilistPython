@@ -133,6 +133,7 @@ class AniListClient:
 
 
 if __name__ == '__main__':
+    print("ets")
     async def main():
         relation_builder = MediaQueryBuilderBase()
         recommendation_builder = MediaQueryBuilderBase()
