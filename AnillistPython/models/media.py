@@ -2,8 +2,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, List
 
-from models.common import AnilistTitle, AnilistTag, AnilistStudio, AnilistCharacter
-from models.enums import MediaType, MediaFormat, MediaSeason, MediaSource, MediaStatus, CharacterRole, MediaRelation
+from AnillistPython.models.common import AnilistTitle, AnilistTag, AnilistStudio, AnilistCharacter
+from AnillistPython.models.enums import MediaType, MediaFormat, MediaSeason, MediaSource, MediaStatus, CharacterRole, MediaRelation
 from dataclasses import dataclass
 
 

@@ -1,7 +1,7 @@
 from typing import Dict, List, Any
 
-from models import AnilistMedia
-from parser import parse_media
+from AnillistPython.models import AnilistMedia
+from AnillistPython.parser import parse_media
 
 
 def parse_searched_media(graphql_data: Dict[str, Any]) -> List[AnilistMedia]:

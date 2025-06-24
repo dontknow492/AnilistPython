@@ -9,9 +9,9 @@ from gql.transport.httpx import HTTPXTransport
 from loguru import logger
 from graphql import ExecutionResult, GraphQLError
 
-from models import AnilistRecommendation, AnilistRelation, AnilistMedia, MediaType
-from queries import MediaQueryBuilder, SearchQueryBuilder, UserActivityQueryBuilder, MediaQueryBuilderBase
-from parser import parse_recommendation, parse_graphql_media_data, parse_searched_media, \
+from AnillistPython.models import AnilistRecommendation, AnilistRelation, AnilistMedia, MediaType
+from AnillistPython.queries import MediaQueryBuilder, SearchQueryBuilder, UserActivityQueryBuilder, MediaQueryBuilderBase
+from AnillistPython.parser import parse_recommendation, parse_graphql_media_data, parse_searched_media, \
     parse_relation, parse_media
 
 

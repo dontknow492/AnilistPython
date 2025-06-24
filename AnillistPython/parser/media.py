@@ -4,10 +4,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from models import  AnilistRelation, AnilistRecommendation, AnilistScore, MediaCoverImage, AnilistMediaCharacter, AnilistMedia, AnilistTitle, \
+from AnillistPython.models import  AnilistRelation, AnilistRecommendation, AnilistScore, MediaCoverImage, AnilistMediaCharacter, AnilistMedia, AnilistTitle, \
     AnilistMediaInfo, MediaFormat, MediaSource, MediaSeason, MediaStatus, MediaRelation, CharacterRole, AnilistCharacter, AnilistTag, AnilistStudio,\
     AnilistMediaBase
-from models.media import AnilistMediaTrailer
+from AnillistPython.models.media import AnilistMediaTrailer
 
 
 def parse_date(date_dict: Optional[dict]) -> Optional[datetime]:

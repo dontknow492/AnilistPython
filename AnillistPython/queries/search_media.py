@@ -1,7 +1,7 @@
 from typing import Union, List
 
-from queries.media import MediaQueryBuilder
-from models import MediaSeason, MediaSource, MediaStatus, MediaType, MediaFormat, MediaRelation, MediaSort
+from AnillistPython.queries.media import MediaQueryBuilder
+from AnillistPython.models import MediaSeason, MediaSource, MediaStatus, MediaType, MediaFormat, MediaRelation, MediaSort
 
 
 class SearchQueryBuilder:
