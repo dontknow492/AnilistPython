@@ -1,15 +1,17 @@
 import asyncio
+import json
 # from calendar import error
 from pathlib import Path
 from typing import Optional, Union, List, Dict, Any
 from gql import Client, gql
 from gql.transport.exceptions import TransportError
-from gql.transport.httpx import HTTPXTransport
+from gql.transport.httpx import HTTPXTransport, HTTPXAsyncTransport
 
 from loguru import logger
 from graphql import ExecutionResult, GraphQLError
 
-from AnillistPython.models import AnilistRecommendation, AnilistRelation, AnilistMedia, MediaType
+
+from AnillistPython.models import AnilistRecommendation, AnilistRelation, AnilistMedia, MediaType, MediaSort, MediaStatus
 from AnillistPython.queries import MediaQueryBuilder, SearchQueryBuilder, UserActivityQueryBuilder, MediaQueryBuilderBase
 from AnillistPython.parser import parse_recommendation, parse_graphql_media_data, parse_searched_media, \
     parse_relation, parse_media
@@ -18,7 +20,7 @@ from AnillistPython.parser import parse_recommendation, parse_graphql_media_data
 
 class AniListClient:
     def __init__(self, url="https://graphql.anilist.co"):
-        self.transport = HTTPXTransport(url=url)
+        self.transport = HTTPXAsyncTransport(url=url)
         path = Path("schema.graphql")
         with open(path, "r", encoding="utf-16") as f:
             schema = f.read()
@@ -38,6 +40,8 @@ class AniListClient:
                 logger.error(e)
             except GraphQLError as e:
                 logger.error(e)
+            except Exception as e:
+                logger.error(e)
 
     async def get_anime(self, media_id: int, builder: Optional[MediaQueryBuilder]) -> Optional[AnilistMedia]:
         if not builder:
@@ -46,21 +50,28 @@ class AniListClient:
         query = builder.build()
         logger.debug(f"query: \n{query}, media_id: {media_id}")
         result = await self.fetch(query, variables={"id": media_id})
-        anime = parse_graphql_media_data(result)
+        anime = parse_graphql_media_data(result, MediaType.ANIME)
         return anime
 
 
     async def search_anime(self, builder: Optional[MediaQueryBuilder], filters: SearchQueryBuilder,
-                        query: str, page: int = 1, perpage: int = 5) -> List[AnilistMedia]:
+                        query: Optional[str], page: int = 1, perpage: int = 5) -> List[AnilistMedia]:
         if not builder:
             builder = self.media_query_builder
         builder.include_anime_fields()
-        variables = {"page": page, "perpage": perpage, "query": query}
+        if query:
+            variables = {"page": page, "perpage": perpage, "query": query}
+        else:
+            variables = {"page": page, "perpage": perpage}
         filters.set_type(MediaType.ANIME)
         search_query = filters.build(builder)
-        logger.debug(f"query: \n{search_query}")
+        # logger.debug(f"query: \n{search_query}")
         result = await self.fetch(search_query, variables)
-        return parse_searched_media(result)
+
+        # with open("data.json", "r", encoding="utf-8") as f:
+        #     result = json.load(f)
+        fields = builder.included_options()
+        return parse_searched_media(result, MediaType.ANIME, fields[0], fields[1], fields[2])
 
 
     async def get_manga(self, media_id: int, builder: Optional[MediaQueryBuilder]) -> AnilistMedia:
@@ -69,7 +80,7 @@ class AniListClient:
         builder.include_manga_fields()
         query = builder.build()
         result = await self.fetch(query)
-        manga = parse_graphql_media_data(result)
+        manga = parse_graphql_media_data(result, MediaType.MANGA)
         return manga
 
     async def search_manga(self, builder: Optional[MediaQueryBuilder], filters: SearchQueryBuilder,
@@ -81,7 +92,7 @@ class AniListClient:
         filters.set_type(MediaType.MANGA)
         search_query = filters.build(builder)
         result = await self.fetch(search_query, variables)
-        return parse_searched_media(result)
+        return parse_searched_media(result, MediaType.MANGA)
 
     async def get_recommendations(self, builder: MediaQueryBuilderBase, media_id: int, page: int = 1, perpage: int = 5) -> Optional[List[AnilistRecommendation]]:
         if not builder:
@@ -89,17 +100,24 @@ class AniListClient:
         fields = builder.field()
         fields_str = " ".join(fields)
         query =  f"""
-        query ($id: Int) {{
-            AnilistMedia(id: $id) {{
-                recommendations {{
-                    nodes {{
-                        mediaRecommendation {{
-                            {fields_str}
-                        }}
+        query ($id: Int, $page: Int, $perPage: Int) {{
+        Media(id: $id) {{
+            recommendations(page: $page, perPage: $perPage) {{
+                pageInfo {{
+                    total
+                    currentPage
+                    lastPage
+                    hasNextPage
+                    perPage
+                }}
+                nodes {{
+                    mediaRecommendation {{
+                        {fields_str}
                     }}
                 }}
             }}
-        }}""".strip()
+        }}
+    }}""".strip()
         result = await self.fetch(query, {"id": media_id, "page": page, "perpage": perpage})
         recommendations = result.get("data", {}).get("AnilistMedia",{}).get("recommendations", {}).get("nodes", [])
         return [parse_recommendation(media_id, recommendation.get("mediaRecommendations")) for recommendation in recommendations]
@@ -127,9 +145,30 @@ class AniListClient:
         relations = result.get("data", {}).get("AnilistMedia", {}).get("relations", {}).get("edges", [])
         return [parse_relation(relation, media_id) for relation in relations]
 
+    def get_trending(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+        search_query = SearchQueryBuilder().set_sort(MediaSort.TRENDING_DESC)
+        if media_type == MediaType.ANIME:
+            self.search_anime(fields, search_query, None, page, per_page)
+        else:
+            self.search_manga(fields, search_query, None, page, per_page)
+
+    def get_top_popular(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+        search_query = SearchQueryBuilder().set_sort(MediaSort.SCORE_DESC)
+        if media_type == MediaType.ANIME:
+            self.search_anime(fields, search_query, None, page, per_page)
+        else:
+            self.search_manga(fields, search_query, None, page, per_page)
+
+    def get_latest(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+        search_query = SearchQueryBuilder().set_sort(MediaSort.START_DATE).set_status(MediaStatus.RELEASING)
+        if media_type == MediaType.ANIME:
+            self.search_anime(fields, search_query, None, page, per_page)
+        else:
+            self.search_manga(fields, search_query, None, page, per_page)
 
     async def get_user_activity(self, query: str, variables: dict = None) -> dict:
-        pass
+        raise NotImplementedError("Not implemented")
+        # pass
 
 
 if __name__ == '__main__':
@@ -137,10 +176,16 @@ if __name__ == '__main__':
     async def main():
         relation_builder = MediaQueryBuilderBase()
         recommendation_builder = MediaQueryBuilderBase()
-        media_query_builder = MediaQueryBuilder().include_all(True, 1, 1, relation_builder, recommendation_builder)
+        media_query_builder = MediaQueryBuilder().include_info().include_score().include_description().include_title()
+        media_query_builder = media_query_builder.include_images().include_dates().include_genres()
         search_query_builder = SearchQueryBuilder()
         anilist = AniListClient()
-        # await anilist.search_anime(media_query_builder, search_query_builder, "one")
+        data = await anilist.search_anime(media_query_builder, search_query_builder, None, page=1, perpage=20)
+
+        print(len(data))
+        for media in data:
+            logger.info(f"Id: {media.id}, Title: {media.title}, Genres: {media.genres}, Score: {media.score}, Description: {media.description[:10]}"
+                  f", idMal: {media.idMal}, info: {media.info}, dates: {media.startDate},")
         # await anilist.get_anime(1, media_query_builder)
 
     asyncio.run(main())

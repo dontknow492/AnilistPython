@@ -2,11 +2,11 @@ import json
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Set
 
 from AnillistPython.models import  AnilistRelation, AnilistRecommendation, AnilistScore, MediaCoverImage, AnilistMediaCharacter, AnilistMedia, AnilistTitle, \
     AnilistMediaInfo, MediaFormat, MediaSource, MediaSeason, MediaStatus, MediaRelation, CharacterRole, AnilistCharacter, AnilistTag, AnilistStudio,\
-    AnilistMediaBase
+    AnilistMediaBase, MediaType
 from AnillistPython.models.media import AnilistMediaTrailer
 
 
@@ -24,12 +24,12 @@ def parse_date(date_dict: Optional[dict]) -> Optional[datetime]:
 
 def parse_title(title_data: Optional[dict]) -> Optional['AnilistTitle']:
     if not title_data:
-        return None
+        return AnilistTitle()
     return AnilistTitle(**title_data)
 
 def parse_cover_image(img_data: Optional[dict]) -> Optional['MediaCoverImage']:
     if not img_data:
-        return None
+        return MediaCoverImage()
     return MediaCoverImage(
         extraLarge=img_data.get("extraLarge"),
         large=img_data.get("large"),
@@ -40,7 +40,7 @@ def parse_cover_image(img_data: Optional[dict]) -> Optional['MediaCoverImage']:
 
 def parse_score(score_data: Optional[dict], media_id: int) -> Optional[AnilistScore]:
     if not score_data:
-        return None
+        return AnilistScore(id = media_id)
 
     return AnilistScore(
         id=media_id,
@@ -67,7 +67,7 @@ def parse_character(character_data: dict, media_id: int) -> Optional[AnilistMedi
 
 def parse_media_info(info_data: Optional[dict], media_id: int) -> Optional[AnilistMediaInfo]:
     if not info_data:
-        return None
+        return AnilistMediaInfo(id = media_id)
 
     return AnilistMediaInfo(
         id=media_id,
@@ -82,7 +82,7 @@ def parse_tag(tag_data: Optional[dict], media_id: int) -> Optional[AnilistTag]:
     if not tag_data:
         return None
     return AnilistTag(
-        id=tag_data.get("id", media_id),
+        id=tag_data.get("id"),
         name=tag_data.get("name"),
         description=tag_data.get("description"),
         category=tag_data.get("category"),
@@ -109,58 +109,63 @@ def parse_trailer(trailer_data: Optional[dict]) -> Optional[AnilistMediaTrailer]
         thumbnail = trailer_data.get('thumbnail'),
     )
 
-def parse_media_base(media_data: Dict[str, Any]) -> Optional[AnilistMediaBase]:
-    media_id = media_data.get("id")  # optional fallback
+def parse_media_base(
+    media_data: Dict[str, Any],
+    media_type: MediaType = None,
+    fields: Optional[Set[str]] = None
+) -> Optional[AnilistMediaBase]:
+    media_id = media_data.get("id")
     if not media_id:
         return None
-    title = parse_title(media_data.get("title"))
-    start_date = parse_date(media_data.get("startDate"))
-    end_date = parse_date(media_data.get("endDate"))
-    image = parse_cover_image(media_data.get("coverImage"))
 
-    info = parse_media_info(media_data, media_id)
-    score = parse_score(media_data, media_id)
 
-    characters = media_data.get("characters")
-    tags = media_data.get("tags")
-    studios = media_data.get("studios")
+    # Helper to check if a field should be included
+    include_field = lambda field: fields is None or field in fields
+
+    # Parse fields conditionally based on 'fields' set
+    title = parse_title(media_data.get("title")) if include_field("title") else None
+    start_date = parse_date(media_data.get("startDate")) if include_field("startDate") else None
+    end_date = parse_date(media_data.get("endDate")) if include_field("endDate") else None
+    image = parse_cover_image(media_data.get("coverImage")) if include_field("coverImage") else None
+    info = parse_media_info(media_data, media_id) if include_field("info") else None
+    score = parse_score(media_data, media_id) if include_field("score") else None
+
     character_list = []
-    tag_list = []
-    studio_list = []
-    if characters:
+    if (fields is None or "characters" in fields) and (characters := media_data.get("characters")):
         for character in characters.get("edges", []):
-            character_data = parse_character(character, media_id)
-            if character_data:
+            if (character_data := parse_character(character, media_id)):
                 character_list.append(character_data)
-    if tags:
+
+    tag_list = []
+    if (fields is None or "tags" in fields) and (tags := media_data.get("tags")):
         for tag in tags:
-            tag_data = parse_tag(tag, media_id)
-            if tag_data:
+            if (tag_data := parse_tag(tag, media_id)):
                 tag_list.append(tag_data)
 
-    if studios:
+    studio_list = []
+    if (fields is None or "studios" in fields) and (studios := media_data.get("studios")):
         for studio in studios.get("edges", []):
-            studio_data = parse_studio(studio, media_id)
-            if data:
+            if (studio_data := parse_studio(studio, media_id)):
                 studio_list.append(studio_data)
 
     return AnilistMediaBase(
         id=media_id,
-        idMal = media_data.get("idMal"),
+        idMal=media_data.get("idMal"),
+        media_type=media_type or MediaType.from_str(media_data.get("type")),
         title=title,
-        cover_image=image,
+        coverImage=image,
         description=media_data.get("description"),
         genres=media_data.get("genres"),
         score=score,
         info=info,
         synonyms=media_data.get("synonyms"),
         tags=tag_list,
-        start_date=start_date,
-        end_date=end_date,
+        startDate=start_date,
+        endDate=end_date,
         studios=studio_list,
         characters=character_list,
-        trailer=parse_trailer(media_data.get("trailer")),
-        site_url=media_data.get("siteUrl"),
+        trailer=parse_trailer(media_data.get("trailer")) if fields is None or "trailer" in fields else None,
+        siteUrl=media_data.get("siteUrl"),
         isAdult=media_data.get("isAdult"),
         duration=media_data.get("duration"),
         episodes=media_data.get("episodes"),
@@ -168,7 +173,7 @@ def parse_media_base(media_data: Dict[str, Any]) -> Optional[AnilistMediaBase]:
         volumes=media_data.get("volumes"),
     )
 
-def parse_relation(relation_data: Optional[dict], media_id: int) -> Optional['AnilistRelation']:
+def parse_relation(relation_data: Optional[dict], media_id: int, fields: Optional[Set[str]] = None) -> Optional['AnilistRelation']:
     """
     :param relation_data: value at data[AnilistMedia][relation][edges][index]
     :param media_id: id of media
@@ -181,10 +186,10 @@ def parse_relation(relation_data: Optional[dict], media_id: int) -> Optional['An
     return AnilistRelation(
         from_media_id=media_id,  # Set to 0 or update dynamically if you track current media id
         relation_type=MediaRelation.from_str(relation_type),
-        media=parse_media_base(node)
+        media=parse_media_base(node, fields=fields)
     )
 
-def parse_recommendation(media_id: int, media_data: Dict[str, Any] ) -> Optional[AnilistRecommendation]:
+def parse_recommendation(media_id: int, media_data: Dict[str, Any], fields: Optional[Set[str]] = None) -> Optional[AnilistRecommendation]:
     """
     :param media_id: id of media
     :param media_data: value at data[AnilistMedia][recommendations][nodes][mediaRecommendation]
@@ -195,34 +200,41 @@ def parse_recommendation(media_id: int, media_data: Dict[str, Any] ) -> Optional
 
     return AnilistRecommendation(
         from_media_id=media_id,
-        media=parse_media_base(media_data)
+        media=parse_media_base(media_data, fields=fields)
     )
 
-def parse_media(media_data: dict) -> Optional[AnilistMedia]:
-    media_id = media_data.get("id")  # optional fallback
+def parse_media(
+    media_data: dict,
+    media_type: MediaType,
+    media_fields: Optional[Set[str]] = None,
+    relation_fields: Optional[Set[str]] = None,
+    recommendation_fields: Optional[Set[str]] = None
+) -> Optional[AnilistMedia]:
+    media_id = media_data.get("id")
     if not media_id:
         return None
 
-    media = parse_media_base(media_data)
-
-
-
-    relations = media_data.get("relations")
-    recommendations = media_data.get("recommendations")
+    media = parse_media_base(media_data, media_type, media_fields)
 
     relation_list = []
-    recommendation_list = []
+    if (media_fields is None or "relations" in media_fields) and relation_fields is not None:
+        relations = media_data.get("relations")
+        if relations:
+            for relation in relations.get("edges", []):
+                rel_data = parse_relation(relation, media_id, relation_fields)
+                if rel_data:
+                    relation_list.append(rel_data)
 
-    if relations:
-        for relation in relations.get("edges", []):
-            rel_data = parse_relation(relation, media_id)
-            if rel_data:
-                relation_list.append(rel_data)
-    if recommendations:
-        for recommendation in recommendations.get("nodes", []):
-            recom_data = parse_recommendation(media_id, recommendation.get("mediaRecommendation"))
-            if recom_data:
-                recommendation_list.append(recom_data)
+    recommendation_list = []
+    if (media_fields is None or "recommendations" in media_fields) and recommendation_fields is not None:
+        recommendations = media_data.get("recommendations")
+        if recommendations:
+            for recommendation in recommendations.get("nodes", []):
+                media_rec = recommendation.get("mediaRecommendation")
+                if media_rec:
+                    recom_data = parse_recommendation(media_id, media_rec, recommendation_fields)
+                    if recom_data:
+                        recommendation_list.append(recom_data)
 
     return AnilistMedia(
         **vars(media),
@@ -230,7 +242,7 @@ def parse_media(media_data: dict) -> Optional[AnilistMedia]:
         recommendations=recommendation_list
     )
 
-def parse_graphql_media_data(graphql_media_data: Dict[str, Any]) -> Optional[AnilistMedia]:
+def parse_graphql_media_data(graphql_media_data: Dict[str, Any], media_type: MediaType) -> Optional[AnilistMedia]:
     media_data = graphql_media_data.get("data", {}).get("AnilistMedia")
     if not media_data:
         print("'AnilistMedia' not found trying to fetch 'media'")
@@ -239,16 +251,41 @@ def parse_graphql_media_data(graphql_media_data: Dict[str, Any]) -> Optional[Ani
         print("media data is empty")
         return None
 
-    return parse_media(media_data)
+    return parse_media(media_data, media_type)
 
 if __name__ == '__main__':
+    from timeit import timeit
     from pprint import pprint
+    from pathlib import Path
     import json
-    path = Path(r"D:\Program\AnilistPython\samples\media_2.json")
+    path = Path(r"D:\Program\AnilistPython\AnillistPython\samples\media_2.json")
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     media_data = data["data"]["media"]
-    # print(data.keys())
-    media = parse_media(media_data)
-    pprint(media, "data")
+
+    # Define field sets
+    minimal_fields = {"id", "title", "coverImage", "score", "siteUrl"}
+    full_fields = None  # This means "parse everything"
+
+    # Wrap parse_media in a callable for benchmarking
+    def run_minimal():
+        parse_media(media_data, MediaType.ANIME, media_fields=minimal_fields)
+
+    def run_full():
+        parse_media(media_data, MediaType.ANIME, media_fields=full_fields)
+
+    # Benchmark both
+    runs = 10
+    min_time = timeit(run_minimal, number=runs)
+    full_time = timeit(run_full, number=runs)
+
+    print(f"✅ Benchmark Results ({runs} runs):")
+    print(f"Minimal fields parse time:     {min_time:.4f} seconds")
+    print(f"Full parse time:               {full_time:.4f} seconds")
+    print(f"Speedup:                       {full_time / min_time:.2f}x faster using minimal fields")
+
+    # Optional: print one actual result
+    print("\nParsed media (minimal):")
+    media = parse_media(media_data, MediaType.ANIME, media_fields=minimal_fields)
+    # pprint(media)

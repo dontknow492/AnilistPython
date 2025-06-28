@@ -12,16 +12,16 @@ class MediaCoverImage:
     """
     The cover image url of the media at its largest size. If this size isn't available, large will be provided instead.
     """
-    extraLarge: Optional[str]
+    extraLarge: Optional[str] = None
 
     """The cover image url of the media at a large size"""
-    large: Optional[str]
+    large: Optional[str] = None
 
     """The cover image url of the media at medium size"""
-    medium: Optional[str]
+    medium: Optional[str] = None
 
     """Average #hex color of cover image"""
-    color: Optional[str]
+    color: Optional[str] = None
 
 
 
@@ -59,7 +59,7 @@ class AnilistMediaBase:
     id: int
     title: Optional[AnilistTitle] = None
     description: Optional[str] = None
-    cover_image: Optional[MediaCoverImage] = None
+    coverImage: Optional[MediaCoverImage] = None
     banner_image: Optional[str] = None
     synonyms: Optional[List[str]] = None
 
@@ -71,8 +71,8 @@ class AnilistMediaBase:
 
     info: Optional[AnilistMediaInfo] = None
 
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    startDate: Optional[datetime] = None
+    endDate: Optional[datetime] = None
 
     characters: Optional[List[AnilistCharacter]] = None
 
@@ -84,9 +84,10 @@ class AnilistMediaBase:
 
     isAdult: Optional[bool] = None
     trailer: Optional[AnilistMediaTrailer] = None
-    site_url: Optional[str] = None
+    siteUrl: Optional[str] = None
     idMal: Optional[int] = None
     # todo: update query builder, parser for bellow data
+    media_type: Optional[MediaType] = None
 
 
 @dataclass

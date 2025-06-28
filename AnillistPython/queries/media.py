@@ -1,4 +1,4 @@
-from typing import Optional, List, Union, overload, override
+from typing import Optional, List, Union, overload, override, Tuple, Set
 
 page_query: str = """
     Page (page: $page, perPage: $perpage) {
@@ -13,9 +13,11 @@ page_query: str = """
 
 class MediaQueryBuilderBase:
     def __init__(self):
-        self.fields = ["id"]
+        self.fields = ["id", "idMal", "type"]
+        self._included_fields = {"id", "idMal", "type"}
 
     def include_title(self):
+        self._included_fields.add('title')
         self.fields.append("""
             title {
                 romaji
@@ -25,6 +27,7 @@ class MediaQueryBuilderBase:
         return self
 
     def include_description(self):
+        self._included_fields.add('description')
         self.fields.append("""
             description""")
         return self
@@ -35,8 +38,8 @@ class MediaQueryBuilderBase:
                        include_extra_large: bool = False,
                        include_color: bool = False,
                        ):
+        self._included_fields.add('coverImage')
         cover_fields = []
-
         if include_large:
             cover_fields.append("large")
         if include_medium:
@@ -66,6 +69,7 @@ class MediaQueryBuilderBase:
 
     def include_tags(self, include_id=True, include_name=True, include_description=False,
                      include_category=False, include_is_adult=False):
+        self._included_fields.add('tags')
         fields = []
         if include_id:
             fields.append("id")
@@ -87,11 +91,13 @@ class MediaQueryBuilderBase:
         return self
 
     def include_genres(self):
+        self._included_fields.add('genres')
         self.fields.append("""
             genres""")
         return self
 
     def include_studios(self, is_main: bool = True):
+        self._included_fields.add('studios')
         self.fields.append(
             f"""
             studios(isMain: {"true" if is_main else "false"}) {{
@@ -107,6 +113,7 @@ class MediaQueryBuilderBase:
         return self
 
     def include_score(self):
+        self._included_fields.add('score')
         self.fields.append(
             """
             averageScore
@@ -117,6 +124,7 @@ class MediaQueryBuilderBase:
         return self
 
     def include_info(self):
+        self._included_fields.add('info')
         self.fields.append(
             """
             format
@@ -128,6 +136,8 @@ class MediaQueryBuilderBase:
         return self
 
     def include_dates(self):
+        self._included_fields.add('startDate')
+        self._included_fields.add('endDate')
         self.fields.append(
             """
             startDate { year month day }
@@ -138,6 +148,7 @@ class MediaQueryBuilderBase:
 
     def include_characters(self, page: int = 1, perpage: int = 10, include_description=False, include_age=False,
                            include_dob=False):
+        self._included_fields.add('characters')
         node_fields = [
             "id",
             "name { full }",
@@ -166,6 +177,7 @@ class MediaQueryBuilderBase:
         return self
 
     def include_trailer(self):
+        self._included_fields.add('trailer')
         self.fields.append("""
             trailer {{
                 id
@@ -175,27 +187,34 @@ class MediaQueryBuilderBase:
         return self
 
     def include_is_adult(self):
+        self._included_fields.add("isAdult")
         self.fields.append("""
             isAdult""")
         return self
 
     def include_anilist_site(self):
+        self._included_fields.add('siteUrl')
         self.fields.append("""
             siteUrl""")
         return self
 
     def include_myanimelist_id(self):
+        self._included_fields.add('idMal')
         self.fields.append("""
             idMal""")
         return self
 
     def include_anime_fields(self):
+        self._included_fields.add('episodes')
+        self._included_fields.add('duration')
         self.fields.append("""
             episodes
             duration""")
         return self
 
     def include_manga_fields(self):
+        self._included_fields.add('chapters')
+        self._included_fields.add('genres')
         self.fields.append("""
             chapters
             volumes""")
@@ -203,6 +222,9 @@ class MediaQueryBuilderBase:
 
     def field(self) -> List[str]:
         return self.fields
+
+    def included_options(self)->Set:
+        return self._included_fields
 
     def build(self) -> str:
         fields_str = ' '.join(self.fields)
@@ -241,10 +263,18 @@ class MediaQueryBuilderBase:
         return self.build()
 
     def reset_build(self):
-        self.fields = ["id"]
+        self.fields = ["id", "idMal", "type"]
+        self._included_fields = {"id", "idMal", "type"}
 
 class MediaQueryBuilder(MediaQueryBuilderBase):
+    def __init__(self):
+        super().__init__()
+        self._included_relations_fields = set()
+        self._included_recommendations_fields = set()
+
     def include_relations(self, query: MediaQueryBuilderBase):
+        self._included_relations_fields = query.included_options()
+        self._included_fields.add('relations')
         relation_field = query.field()
         relation_query = " ".join(relation_field)
         self.fields.append(
@@ -261,6 +291,8 @@ class MediaQueryBuilder(MediaQueryBuilderBase):
         return self
 
     def include_recommendations(self, query: MediaQueryBuilderBase, page: int = 1, perpage: int = 10):
+        self._included_fields.add('recommendations')
+        self._included_recommendations_fields = query.included_options()
         recommendation_field = query.field()
         recommendation_str = " ".join(recommendation_field)
         self.fields.append(
@@ -297,9 +329,13 @@ class MediaQueryBuilder(MediaQueryBuilderBase):
 
         return self.build()
 
+    def included_options(self)->Tuple[Set, Set, Set]:
+        return self._included_fields, self._included_relations_fields, self._included_recommendations_fields
+
 if __name__ == "__main__":
     from pprint import pprint
     relation_builder = MediaQueryBuilderBase().include_all()
     recommendation_builder = MediaQueryBuilderBase().include_all()
-    query = MediaQueryBuilder().build_full(False, 1, 10, relation_builder, recommendation_builder)
-    print(query)
+    query = MediaQueryBuilder().include_all(False, 1, 10, relation_builder, recommendation_builder)
+    print(relation_builder.included_options())
+    print(query.included_options())

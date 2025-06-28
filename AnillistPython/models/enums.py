@@ -124,5 +124,27 @@ class MediaSort(Enum):
     FAVOURITES = "FAVOURITES"
     FAVOURITES_DESC = "FAVOURITES_DESC"
 
+class MediaGenre(Enum):
+    ANY = "ANY"
+    ACTION = "Action"
+    ADVENTURE = "Adventure"
+    COMEDY = "Comedy"
+    DRAMA = "Drama"
+    ECCHI = "Ecchi"
+    FANTASY = "Fantasy"
+    HENTAI = "Hentai"
+    HORROR = "Horror"
+    MAHOU_SHOUJO = "Mahou Shoujo"
+    MECHA = "Mecha"
+    MUSIC = "Music"
+    MYSTERY = "Mystery"
+    PSYCHOLOGICAL = "Psychological"
+    ROMANCE = "Romance"
+    SCI_FI = "Sci-Fi"
+    SLICE_OF_LIFE = "Slice of Life"
+    SPORTS = "Sports"
+    SUPERNATURAL = "Supernatural"
+    THRILLER = "Thriller"
+
 if __name__ == "__main__":
     print(MediaType.from_str(MediaType.MANGA.value))

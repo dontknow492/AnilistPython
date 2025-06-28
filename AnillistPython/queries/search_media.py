@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, List, Set
 
 from AnillistPython.queries.media import MediaQueryBuilder
 from AnillistPython.models import MediaSeason, MediaSource, MediaStatus, MediaType, MediaFormat, MediaRelation, MediaSort
@@ -9,12 +9,18 @@ class SearchQueryBuilder:
         self.variables = {}
         self.filters = []
 
+        self._included_options: Set[str] = set()
+
     def set_search(self, query: str):
+        # self.filters.append("search: $query")
         self.variables["query"] = query
         return self
 
     def set_sort(self, sort: MediaSort):
+        if "sort" in self._included_options:
+            raise ValueError('There can be only one argument named "sort" ')
         self.filters.append(f'sort: {sort.value}')
+        return self
 
     def set_type(self, media_type: MediaType):  # ANIME or MANGA
         self.filters.append(f'type: {media_type.value}')
@@ -103,15 +109,13 @@ class SearchQueryBuilder:
         self.variables["perpage"] = per_page
         return self
 
-    def build(self, media_fields: Union[str, List[str], MediaQueryBuilder]) -> str:
+    def build(self, media_fields: MediaQueryBuilder) -> str:
         if isinstance(media_fields, MediaQueryBuilder):
             media_fields = media_fields.field() # return List[str]
+            media_fields_str = ' '.join(media_fields)
 
-        if isinstance(media_fields, List):
-            media_fields_str = fields_str = ' '.join(media_fields)
-
-        elif isinstance(media_fields, str):
-            media_fields_str = media_fields
+        # elif isinstance(media_fields, str):
+        #     media_fields_str = media_fields
 
         else:
             raise TypeError('media_fields must be either str or list or MediaQueryBuilder')
@@ -126,19 +130,21 @@ class SearchQueryBuilder:
                             lastPage
                             hasNextPage
                         }}
-                        media(search: $query, {filter_str}) {{
+                        media(search: $query, {filter_str}) {{  
                             {media_fields_str}
                         }}
                     }}
                 }}
-                """.strip()
+                """.strip() #
+
+
 
     def reset_build(self):
         self.filters = []
         self.variables = {}
 
 if __name__ == "__main__":
-    media_query = MediaQueryBuilder().include_recommendations()
-    builder = SearchQueryBuilder()
-    query = builder.set_formats([MediaFormat.MUSIC, MediaFormat.TV], True).build(media_query)
+    media_query = MediaQueryBuilder()
+    builder = SearchQueryBuilder().set_sort(MediaSort.TRENDING_DESC).set_search("one")
+    query = builder.build(media_query)
     print(query)
