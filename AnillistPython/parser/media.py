@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any, Set
 from AnillistPython.models import  AnilistRelation, AnilistRecommendation, AnilistScore, MediaCoverImage, AnilistMediaCharacter, AnilistMedia, AnilistTitle, \
     AnilistMediaInfo, MediaFormat, MediaSource, MediaSeason, MediaStatus, MediaRelation, CharacterRole, AnilistCharacter, AnilistTag, AnilistStudio,\
     AnilistMediaBase, MediaType
-from AnillistPython.models.media import AnilistMediaTrailer
+from AnillistPython.models.media import AnilistMediaTrailer, AnilistEpisode
 
 
 def parse_date(date_dict: Optional[dict]) -> Optional[datetime]:
@@ -107,6 +107,17 @@ def parse_trailer(trailer_data: Optional[dict]) -> Optional[AnilistMediaTrailer]
         video_id=trailer_data.get('id'),
         site = trailer_data.get('site'),
         thumbnail = trailer_data.get('thumbnail'),
+    )
+
+def parse_episode(streaming_data: Optional[dict], media_id: int) -> Optional[AnilistEpisode]:
+    if not streaming_data:
+        return None
+    return AnilistEpisode(
+        media_id=media_id,
+        title=streaming_data.get('title'),
+        thumbnail=streaming_data.get('thumbnail'),
+        official_url=streaming_data.get('url'),
+        official_site=streaming_data.get('site'),
     )
 
 def parse_media_base(

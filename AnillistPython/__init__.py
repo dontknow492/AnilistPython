@@ -8,4 +8,4 @@ from .queries import MediaQueryBuilder, SearchQueryBuilder, MediaQueryBuilderBas
 from .models import AnilistMedia, AnilistRelation, AnilistRecommendation, AnilistScore, AnilistMediaInfo, \
     MediaCoverImage, AnilistMediaCharacter, AnilistMediaBase, AnilistTitle, AnilistCharacter, AnilistStudio, \
     AnilistTag, MediaSort, MediaFormat, MediaSeason, MediaSource, MediaStatus, MediaType, MediaRelation, StrEnum, \
-    MediaGenre
+    MediaGenre, AnilistEpisode

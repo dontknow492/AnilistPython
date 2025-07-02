@@ -10,6 +10,10 @@ class StrEnum(Enum):
         except (TypeError, ValueError):
             return None
 
+    def __str__(self):
+        value = self.value
+        return value.replace("_", " ").title()
+
 class MediaType(StrEnum):
     ANIME = 'ANIME'
     MANGA = 'MANGA'
@@ -125,7 +129,6 @@ class MediaSort(Enum):
     FAVOURITES_DESC = "FAVOURITES_DESC"
 
 class MediaGenre(Enum):
-    ANY = "ANY"
     ACTION = "Action"
     ADVENTURE = "Adventure"
     COMEDY = "Comedy"

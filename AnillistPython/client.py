@@ -171,6 +171,23 @@ class AniListClient:
         # pass
 
 
+    async def get_episode(self, media_id: int):
+        query = """
+        query ($id: Int) {
+          Media(id: $id) {
+            episodes
+            streamingEpisodes {
+              title
+              thumbnail
+              url
+              site
+            }
+            
+          }
+        }"""
+        variables = {"id": media_id}
+        result = await self.fetch(query, variables)
+
 if __name__ == '__main__':
     print("ets")
     async def main():

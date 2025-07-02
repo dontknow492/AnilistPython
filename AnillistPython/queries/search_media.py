@@ -1,4 +1,4 @@
-from typing import Union, List, Set
+from typing import Union, List, Set, Optional
 
 from AnillistPython.queries.media import MediaQueryBuilder
 from AnillistPython.models import MediaSeason, MediaSource, MediaStatus, MediaType, MediaFormat, MediaRelation, MediaSort
@@ -47,9 +47,10 @@ class SearchQueryBuilder:
         self.filters.append(f'source_in: [{values}]')
         return self
 
-    def set_season(self, season: MediaSeason, year: int):
+    def set_season(self, season: MediaSeason, year: Optional[int] = None):
         self.filters.append(f'season: {season.value}')
-        self.filters.append(f'seasonYear: {year}')
+        if year is not None:
+            self.filters.append(f'seasonYear: {year}')
         return self
 
     def set_genres(self, include: list[str] = None, exclude: list[str] = None):
@@ -61,14 +62,14 @@ class SearchQueryBuilder:
             self.filters.append(f'genre_not_in: [{genre_list}]')
         return self
 
-    def set_tags(self, include: list[str] = None, exclude: list[str] = None, minimum_tags_rank: int = 18):
+    def set_tags(self, include: list[str] = None, exclude: list[str] = None):
         if include:
             tag_list = ', '.join(f'"{t}"' for t in include)
             self.filters.append(f'tag_in: [{tag_list}]')
         if exclude:
             tag_list = ', '.join(f'"{t}"' for t in exclude)
             self.filters.append(f'tag_not_in: [{tag_list}]')
-        self.filters.append(f'minimumTagRank: {minimum_tags_rank}')
+        # self.filters.append(f'minimumTagRank: {minimum_tags_rank}')
         return self
 
     def set_score_range(self, min_score: int = None, max_score: int = None):
@@ -99,6 +100,14 @@ class SearchQueryBuilder:
         if max_chapters is not None:
             self.filters.append(f'chapters_lesser: {max_chapters}')
         return self
+
+    def set_year_range(self, min_year: int = None, max_year: int = None):
+        if min_year is not None:
+            start_date = int(f"{min_year}0101")
+            self.filters.append(f"startDate_greater: {start_date}")
+        if max_year is not None:
+            end_date = int(f"{max_year}1231")
+            self.filters.append(f"startDate_lesser: {end_date}")
 
     def set_adult(self, is_adult: bool = False):
         self.filters.append(f'isAdult: {"true" if is_adult else "false"}')

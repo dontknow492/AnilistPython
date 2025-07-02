@@ -107,3 +107,10 @@ class AnilistMedia(AnilistMediaBase):
     relations: Optional[List[AnilistRelation]] = None
     recommendations: Optional[List[AnilistRecommendation]] = None
 
+@dataclass
+class AnilistEpisode:
+    media_id: id
+    title: str
+    thumbnail: str
+    official_url: str
+    official_site: str
