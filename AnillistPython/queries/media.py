@@ -58,6 +58,7 @@ class MediaQueryBuilderBase:
         return self
 
     def include_banner_image(self):
+        self._included_fields.add('bannerImage')
         self.fields.append("""
             bannerImage""")
         return self

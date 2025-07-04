@@ -165,6 +165,7 @@ def parse_media_base(
         media_type=media_type or MediaType.from_str(media_data.get("type")),
         title=title,
         coverImage=image,
+        bannerImage=media_data.get("bannerImage"),
         description=media_data.get("description"),
         genres=media_data.get("genres"),
         score=score,

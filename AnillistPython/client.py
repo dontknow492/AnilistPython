@@ -2,6 +2,7 @@ import asyncio
 import json
 # from calendar import error
 from pathlib import Path
+from pprint import pprint
 from typing import Optional, Union, List, Dict, Any
 from gql import Client, gql
 from gql.transport.exceptions import TransportError
@@ -10,7 +11,7 @@ from gql.transport.httpx import HTTPXTransport, HTTPXAsyncTransport
 from loguru import logger
 from graphql import ExecutionResult, GraphQLError
 
-
+from AnillistPython.models import MediaFormat, MediaSource
 from AnillistPython.models import AnilistRecommendation, AnilistRelation, AnilistMedia, MediaType, MediaSort, MediaStatus
 from AnillistPython.queries import MediaQueryBuilder, SearchQueryBuilder, UserActivityQueryBuilder, MediaQueryBuilderBase
 from AnillistPython.parser import parse_recommendation, parse_graphql_media_data, parse_searched_media, \
@@ -21,27 +22,34 @@ from AnillistPython.parser import parse_recommendation, parse_graphql_media_data
 class AniListClient:
     def __init__(self, url="https://graphql.anilist.co"):
         self.transport = HTTPXAsyncTransport(url=url)
-        path = Path("schema.graphql")
-        with open(path, "r", encoding="utf-16") as f:
-            schema = f.read()
-        self.client = Client(transport=self.transport, schema=schema)
+        self.client = Client(transport=self.transport, fetch_schema_from_transport=True)
+        self.session = None
 
         self.media_query_builder = MediaQueryBuilder()
         self.search_query_builder = SearchQueryBuilder()
         self.user_activity_query_builder = UserActivityQueryBuilder()
 
+    async def connect(self):
+        self.session = await self.client.connect_async()
+
+    async def close(self):
+        await self.client.close_async()
+
     async def fetch(self, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        async with self.client as session:
-            try:
-                result = await session.execute(gql(query), variable_values=variables)
-            # errors = ExecutionResult().errors
-                return result
-            except TransportError as e:
-                logger.error(e)
-            except GraphQLError as e:
-                logger.error(e)
-            except Exception as e:
-                logger.error(e)
+        if not self.session:
+            self.session = await self.client.connect_async()
+        try:
+            result = await self.session.execute(gql(query), variable_values=variables)
+            return result
+        except TransportError as e:
+            logger.error(f"Transport error: {e}")
+            raise
+        except GraphQLError as e:
+            logger.error(f"GraphQL error: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            raise
 
     async def get_anime(self, media_id: int, builder: Optional[MediaQueryBuilder]) -> Optional[AnilistMedia]:
         if not builder:
@@ -68,8 +76,12 @@ class AniListClient:
         # logger.debug(f"query: \n{search_query}")
         result = await self.fetch(search_query, variables)
 
-        # with open("data.json", "r", encoding="utf-8") as f:
-        #     result = json.load(f)
+        # with open("animes.json", "w", encoding="utf-8") as f:
+        #     json.dump(result, f, ensure_ascii=False, indent=4)
+        #
+        # with open("animes.json", "r", encoding="utf-8") as f:
+        #     animes = json.load(f)
+
         fields = builder.included_options()
         return parse_searched_media(result, MediaType.ANIME, fields[0], fields[1], fields[2])
 
@@ -84,11 +96,14 @@ class AniListClient:
         return manga
 
     async def search_manga(self, builder: Optional[MediaQueryBuilder], filters: SearchQueryBuilder,
-                        query: str, page: int = 1, perpage: int = 5) -> List[AnilistMedia]:
+                        query: Optional[str], page: int = 1, perpage: int = 5) -> List[AnilistMedia]:
         if not builder:
             builder = self.media_query_builder
         builder.include_manga_fields()
-        variables = {"page": page, "perpage": perpage, "query": query}
+        if query:
+            variables = {"page": page, "perpage": perpage, "query": query}
+        else:
+            variables = {"page": page, "perpage": perpage}
         filters.set_type(MediaType.MANGA)
         search_query = filters.build(builder)
         result = await self.fetch(search_query, variables)
@@ -145,26 +160,40 @@ class AniListClient:
         relations = result.get("data", {}).get("AnilistMedia", {}).get("relations", {}).get("edges", [])
         return [parse_relation(relation, media_id) for relation in relations]
 
-    def get_trending(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+    async def get_trending(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
         search_query = SearchQueryBuilder().set_sort(MediaSort.TRENDING_DESC)
         if media_type == MediaType.ANIME:
-            self.search_anime(fields, search_query, None, page, per_page)
+            return await self.search_anime(fields, search_query, None, page, per_page)
         else:
-            self.search_manga(fields, search_query, None, page, per_page)
+            return await self.search_manga(fields, search_query, None, page, per_page)
 
-    def get_top_popular(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+    async def get_top_popular(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+        search_query = SearchQueryBuilder().set_sort(MediaSort.POPULARITY_DESC)
+        if media_type == MediaType.ANIME:
+            return await self.search_anime(fields, search_query, None, page, per_page)
+        else:
+            return await self.search_manga(fields, search_query, None, page, per_page)
+
+    async def get_top_rated(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
         search_query = SearchQueryBuilder().set_sort(MediaSort.SCORE_DESC)
         if media_type == MediaType.ANIME:
-            self.search_anime(fields, search_query, None, page, per_page)
+            search_query.set_episodes_range(5)
+            search_query.set_score_range(80, 99)
+            return await self.search_anime(fields, search_query, None, page, per_page)
         else:
-            self.search_manga(fields, search_query, None, page, per_page)
+            search_query.set_chapters_range(5)
+            search_query.set_score_range(80, 99)
+            return await self.search_manga(fields, search_query, None, page, per_page)
 
-    def get_latest(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
-        search_query = SearchQueryBuilder().set_sort(MediaSort.START_DATE).set_status(MediaStatus.RELEASING)
+    async def get_latest(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+        search_query = SearchQueryBuilder().set_sort(MediaSort.START_DATE_DESC).set_status([MediaStatus.RELEASING,])
+        # print("search_query:", search_query.build(fields))
         if media_type == MediaType.ANIME:
-            self.search_anime(fields, search_query, None, page, per_page)
+            search_query.set_formats([MediaFormat.TV,])
+            search_query.set_sources([MediaSource.MANGA, MediaSource.LIGHT_NOVEL, MediaSource.WEB_NOVEL])
+            return await self.search_anime(fields, search_query, None, page, per_page)
         else:
-            self.search_manga(fields, search_query, None, page, per_page)
+            return await self.search_manga(fields, search_query, None, page, per_page)
 
     async def get_user_activity(self, query: str, variables: dict = None) -> dict:
         raise NotImplementedError("Not implemented")
@@ -193,16 +222,25 @@ if __name__ == '__main__':
     async def main():
         relation_builder = MediaQueryBuilderBase()
         recommendation_builder = MediaQueryBuilderBase()
-        media_query_builder = MediaQueryBuilder().include_info().include_score().include_description().include_title()
-        media_query_builder = media_query_builder.include_images().include_dates().include_genres()
+        media_query_builder = MediaQueryBuilder().include_score()
         search_query_builder = SearchQueryBuilder()
         anilist = AniListClient()
-        data = await anilist.search_anime(media_query_builder, search_query_builder, None, page=1, perpage=20)
+        await anilist.connect()
+        # data = await anilist.search_anime(media_query_builder, search_query_builder, None, page=1, perpage=20)
 
-        print(len(data))
-        for media in data:
-            logger.info(f"Id: {media.id}, Title: {media.title}, Genres: {media.genres}, Score: {media.score}, Description: {media.description[:10]}"
-                  f", idMal: {media.idMal}, info: {media.info}, dates: {media.startDate},")
-        # await anilist.get_anime(1, media_query_builder)
+        # print(len(data))
+        # for media in data:
+        #     logger.info(f"Id: {media.id}, Title: {media.title}, Genres: {media.genres}, Score: {media.score}, Description: {media.description[:10]}"
+        #           f", idMal: {media.idMal}, info: {media.info}, dates: {media.startDate},")
+        # # await anilist.get_anime(1, media_query_builder)
+
+        task1 = asyncio.create_task(anilist.get_top_popular(media_query_builder, MediaType.MANGA, 1, 1))
+        result = await task1
+        pprint(result)
+
+        # print(await anilist.get_latest(media_query_builder, MediaType.ANIME, 1, 1))
+        # print(await anilist.get_trending(media_query_builder, MediaType.ANIME, 1, 1))
+        # print(await anilist.get_latest(media_query_builder, MediaType.ANIME, 1, 1))
+        # print(await anilist.get_latest(media_query_builder, MediaType.ANIME, 1, 1))
 
     asyncio.run(main())

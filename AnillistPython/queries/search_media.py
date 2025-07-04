@@ -108,6 +108,7 @@ class SearchQueryBuilder:
         if max_year is not None:
             end_date = int(f"{max_year}1231")
             self.filters.append(f"startDate_lesser: {end_date}")
+        return self
 
     def set_adult(self, is_adult: bool = False):
         self.filters.append(f'isAdult: {"true" if is_adult else "false"}')

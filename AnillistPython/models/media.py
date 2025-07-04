@@ -60,7 +60,7 @@ class AnilistMediaBase:
     title: Optional[AnilistTitle] = None
     description: Optional[str] = None
     coverImage: Optional[MediaCoverImage] = None
-    banner_image: Optional[str] = None
+    bannerImage: Optional[str] = None
     synonyms: Optional[List[str]] = None
 
     tags: Optional[List[AnilistTag]] = None
