@@ -50,7 +50,7 @@ class AnilistMediaCharacter(AnilistCharacter):
 
 @dataclass
 class AnilistMediaTrailer:
-    video_id: int = None
+    video_id: str = None
     site: Optional[str] = None
     thumbnail: Optional[str] = None
 
@@ -114,3 +114,15 @@ class AnilistEpisode:
     thumbnail: str
     official_url: str
     official_site: str
+
+@dataclass
+class AnilistPageInfo:
+    total: int
+    currentPage: int
+    lastPage: int
+    hasNextPage: bool
+
+@dataclass
+class AnilistSearchResult:
+    pageInfo: AnilistPageInfo
+    medias: List[AnilistMedia]

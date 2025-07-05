@@ -1,117 +1,120 @@
+import hashlib
+import json
 from typing import Union, List, Set, Optional
 
 from AnillistPython.queries.media import MediaQueryBuilder
-from AnillistPython.models import MediaSeason, MediaSource, MediaStatus, MediaType, MediaFormat, MediaRelation, MediaSort
+from AnillistPython.models import (MediaSeason, MediaSource, MediaStatus, MediaType, MediaFormat, MediaRelation,
+                                MediaSort, MediaGenre)
 
 
 class SearchQueryBuilder:
     def __init__(self):
         self.variables = {}
         self.filters = []
-
         self._included_options: Set[str] = set()
 
+    def _add_or_replace_filter(self, key: str, value: str):
+        pattern = f"{key}:"
+        existing = next((i for i, f in enumerate(self.filters) if f.startswith(pattern)), None)
+        filter_str = f"{key}: {value}"
+        if existing is not None:
+            self.filters[existing] = filter_str
+        else:
+            self.filters.append(filter_str)
+
     def set_search(self, query: str):
-        # self.filters.append("search: $query")
         self.variables["query"] = query
         return self
 
     def set_sort(self, sort: MediaSort):
         if "sort" in self._included_options:
-            raise ValueError('There can be only one argument named "sort" ')
-        self.filters.append(f'sort: {sort.value}')
+            raise ValueError('There can be only one argument named "sort"')
+        self._included_options.add("sort")
+        self._add_or_replace_filter("sort", sort.value)
         return self
 
-    def set_type(self, media_type: MediaType):  # ANIME or MANGA
-        self.filters.append(f'type: {media_type.value}')
+    def set_type(self, media_type: MediaType):
+        self._add_or_replace_filter("type", media_type.value)
         return self
 
     def set_formats(self, media_formats: List[MediaFormat], is_excluded: bool = False):
-        values = ", ".join(media_format.value for media_format in media_formats)
-        if is_excluded:
-            self.filters.append(f'format_not_in: [{values}]')
-        else:
-            self.filters.append(f'format_in: [{values}]')
+        values = ", ".join(fmt.value for fmt in media_formats)
+        key = "format_not_in" if is_excluded else "format_in"
+        self._add_or_replace_filter(key, f"[{values}]")
         return self
 
     def set_status(self, status: List[MediaStatus], is_excluded: bool = False):
-        values = ", ".join(media_format.value for media_format in status)
-        if is_excluded:
-            self.filters.append(f'status_not_in: [{values}]')
-        else:
-            self.filters.append(f'status_in: [{values}]')
+        values = ", ".join(s.value for s in status)
+        key = "status_not_in" if is_excluded else "status_in"
+        self._add_or_replace_filter(key, f"[{values}]")
         return self
 
-    def set_sources(self, sources: list[MediaSource]):
-        values = ", ".join(source.value for source in sources)
-        self.filters.append(f'source_in: [{values}]')
+    def set_sources(self, sources: List[MediaSource]):
+        values = ", ".join(s.value for s in sources)
+        self._add_or_replace_filter("source_in", f"[{values}]")
         return self
 
     def set_season(self, season: MediaSeason, year: Optional[int] = None):
-        self.filters.append(f'season: {season.value}')
+        self._add_or_replace_filter("season", season.value)
         if year is not None:
-            self.filters.append(f'seasonYear: {year}')
+            self._add_or_replace_filter("seasonYear", str(year))
         return self
 
-    def set_genres(self, include: list[str] = None, exclude: list[str] = None):
+    def set_genres(self, include: List[Union[MediaGenre, str]] = None, exclude: List[Union[MediaGenre, str]] = None):
         if include:
-            genre_list = ', '.join(f'"{g}"' for g in include)
-            self.filters.append(f'genre_in: [{genre_list}]')
+            values = ", ".join(f'"{g.value if isinstance(g, MediaGenre) else g}"' for g in include)
+            self._add_or_replace_filter("genre_in", f"[{values}]")
         if exclude:
-            genre_list = ', '.join(f'"{g}"' for g in exclude)
-            self.filters.append(f'genre_not_in: [{genre_list}]')
+            values = ", ".join(f'"{g.value if isinstance(g, MediaGenre) else g}"' for g in exclude)
+            self._add_or_replace_filter("genre_not_in", f"[{values}]")
         return self
 
-    def set_tags(self, include: list[str] = None, exclude: list[str] = None):
+    def set_tags(self, include: List[str] = None, exclude: List[str] = None):
         if include:
-            tag_list = ', '.join(f'"{t}"' for t in include)
-            self.filters.append(f'tag_in: [{tag_list}]')
+            values = ", ".join(f'"{t}"' for t in include)
+            self._add_or_replace_filter("tag_in", f"[{values}]")
         if exclude:
-            tag_list = ', '.join(f'"{t}"' for t in exclude)
-            self.filters.append(f'tag_not_in: [{tag_list}]')
-        # self.filters.append(f'minimumTagRank: {minimum_tags_rank}')
+            values = ", ".join(f'"{t}"' for t in exclude)
+            self._add_or_replace_filter("tag_not_in", f"[{values}]")
         return self
 
     def set_score_range(self, min_score: int = None, max_score: int = None):
         if min_score is not None:
-            self.filters.append(f'averageScore_greater: {min_score}')
+            self._add_or_replace_filter("averageScore_greater", str(min_score))
         if max_score is not None:
-            self.filters.append(f'averageScore_lesser: {max_score}')
+            self._add_or_replace_filter("averageScore_lesser", str(max_score))
         return self
 
     def set_episodes_range(self, min_episodes: int = None, max_episodes: int = None):
         if min_episodes is not None:
-            self.filters.append(f'episodes_greater: {min_episodes}')  # or episodes_gt
+            self._add_or_replace_filter("episodes_greater", str(min_episodes))
         if max_episodes is not None:
-            self.filters.append(f'episodes_lesser: {max_episodes}')  # or episodes_lt
+            self._add_or_replace_filter("episodes_lesser", str(max_episodes))
         return self
 
     def set_duration_range(self, min_duration: int = None, max_duration: int = None):
-        """Duration in minutes"""
         if min_duration is not None:
-            self.filters.append(f'duration_greater: {min_duration}')
+            self._add_or_replace_filter("duration_greater", str(min_duration))
         if max_duration is not None:
-            self.filters.append(f'duration_lesser: {max_duration}')
+            self._add_or_replace_filter("duration_lesser", str(max_duration))
         return self
 
     def set_chapters_range(self, min_chapters: int = None, max_chapters: int = None):
         if min_chapters is not None:
-            self.filters.append(f'chapters_greater: {min_chapters}')
+            self._add_or_replace_filter("chapters_greater", str(min_chapters))
         if max_chapters is not None:
-            self.filters.append(f'chapters_lesser: {max_chapters}')
+            self._add_or_replace_filter("chapters_lesser", str(max_chapters))
         return self
 
     def set_year_range(self, min_year: int = None, max_year: int = None):
         if min_year is not None:
-            start_date = int(f"{min_year}0101")
-            self.filters.append(f"startDate_greater: {start_date}")
+            self._add_or_replace_filter("startDate_greater", f"{min_year}0101")
         if max_year is not None:
-            end_date = int(f"{max_year}1231")
-            self.filters.append(f"startDate_lesser: {end_date}")
+            self._add_or_replace_filter("startDate_lesser", f"{max_year}1231")
         return self
 
     def set_adult(self, is_adult: bool = False):
-        self.filters.append(f'isAdult: {"true" if is_adult else "false"}')
+        self._add_or_replace_filter("isAdult", "true" if is_adult else "false")
         return self
 
     def set_page(self, page: int = 1, per_page: int = 10):
@@ -152,6 +155,23 @@ class SearchQueryBuilder:
     def reset_build(self):
         self.filters = []
         self.variables = {}
+
+    def __hash__(self):
+        return int(self.stable_hash(), 16)
+
+    def stable_hash(self) -> str:
+        filters_key = sorted(self.filters)
+
+        # Convert to a deterministic string
+        combined = json.dumps(filters_key, separators=(',', ':'))
+
+        # Hash with SHA256
+        return hashlib.sha256(combined.encode('utf-8')).hexdigest()
+
+    def __eq__(self, other):
+        if not isinstance(other, SearchQueryBuilder):
+            return NotImplemented
+        return sorted(self.filters) == sorted(other.filters)
 
 if __name__ == "__main__":
     media_query = MediaQueryBuilder()

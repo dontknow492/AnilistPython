@@ -1,3 +1,4 @@
+import hashlib
 from typing import Optional, List, Union, overload, override, Tuple, Set
 
 page_query: str = """
@@ -230,7 +231,7 @@ class MediaQueryBuilderBase:
     def build(self) -> str:
         fields_str = ' '.join(self.fields)
         return f"""query ($id: Int) {{
-        AnilistMedia(id: $id) {{
+        Media(id: $id) {{
             {fields_str}
           }}
     }}""".strip()
@@ -266,6 +267,28 @@ class MediaQueryBuilderBase:
     def reset_build(self):
         self.fields = ["id", "idMal", "type"]
         self._included_fields = {"id", "idMal", "type"}
+
+    def __hash__(self):
+        return int(self.stable_hash(), 16)
+
+    def stable_hash(self) -> str:
+        # Ensure every item is a string (and flatten if needed)
+        fields = self.included_options()
+        normalized = []
+        for item in fields:
+            if isinstance(item, set):
+                # Flatten nested sets (e.g. {'id', 'idMal'})
+                normalized.extend(str(subitem) for subitem in sorted(item))
+            else:
+                normalized.append(str(item))
+
+        combined = '|'.join(sorted(normalized))
+        return hashlib.sha256(combined.encode('utf-8')).hexdigest()
+
+    def __eq__(self, other):
+        if not isinstance(other, MediaQueryBuilderBase):
+            return NotImplemented
+        return sorted(self.fields) == sorted(other.fields)
 
 class MediaQueryBuilder(MediaQueryBuilderBase):
     def __init__(self):
@@ -339,4 +362,6 @@ if __name__ == "__main__":
     recommendation_builder = MediaQueryBuilderBase().include_all()
     query = MediaQueryBuilder().include_all(False, 1, 10, relation_builder, recommendation_builder)
     print(relation_builder.included_options())
-    print(query.included_options())
+
+    print(query.fields)
+    pprint(query.stable_hash())#1028056373099110810

@@ -25,7 +25,7 @@ class AnilistTag:
     name: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
-    is_adult: Optional[bool] = None
+    isAdult: Optional[bool] = None
 
 @dataclass
 class AnilistStudio:

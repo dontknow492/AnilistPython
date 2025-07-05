@@ -4,25 +4,44 @@ import json
 from pathlib import Path
 from pprint import pprint
 from typing import Optional, Union, List, Dict, Any
+
+import httpx
 from gql import Client, gql
-from gql.transport.exceptions import TransportError
+from gql.transport.exceptions import TransportError, TransportServerError, TransportQueryError
 from gql.transport.httpx import HTTPXTransport, HTTPXAsyncTransport
 
 from loguru import logger
 from graphql import ExecutionResult, GraphQLError
 
-from AnillistPython.models import MediaFormat, MediaSource
+from AnillistPython.models import MediaFormat, MediaSource, AnilistSearchResult
 from AnillistPython.models import AnilistRecommendation, AnilistRelation, AnilistMedia, MediaType, MediaSort, MediaStatus
 from AnillistPython.queries import MediaQueryBuilder, SearchQueryBuilder, UserActivityQueryBuilder, MediaQueryBuilderBase
 from AnillistPython.parser import parse_recommendation, parse_graphql_media_data, parse_searched_media, \
     parse_relation, parse_media
 
-
+import copy
 
 class AniListClient:
     def __init__(self, url="https://graphql.anilist.co"):
-        self.transport = HTTPXAsyncTransport(url=url)
-        self.client = Client(transport=self.transport, fetch_schema_from_transport=True)
+        try:
+            self.transport = HTTPXAsyncTransport(url=url)
+            self.client = Client(transport=self.transport, fetch_schema_from_transport=True)
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to AniList API: {e}")
+            raise ConnectionError("Unable to connect to AniList API.") from e
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error during schema fetch: {e.response.status_code} {e.response.text}")
+            raise
+        except TransportServerError as e:
+            logger.error(f"Transport server error: {e}")
+            raise
+        except TransportQueryError as e:
+            logger.error(f"GraphQL query error: {e}")
+            raise
+        except Exception as e:
+            logger.exception("Unexpected error during client initialization")
+            raise
+
         self.session = None
 
         self.media_query_builder = MediaQueryBuilder()
@@ -30,30 +49,53 @@ class AniListClient:
         self.user_activity_query_builder = UserActivityQueryBuilder()
 
     async def connect(self):
-        self.session = await self.client.connect_async()
+        try:
+            self.session = await self.client.connect_async()
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            logger.error("Failed to connect to AniList API: %s", e)
+            raise ConnectionError("Unable to connect to AniList API.") from e
+        except Exception as e:
+            logger.error("Unexpected error during connection: %s", e)
+            raise
 
     async def close(self):
         await self.client.close_async()
 
     async def fetch(self, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if not self.session:
-            self.session = await self.client.connect_async()
+            await self.connect()
+
         try:
             result = await self.session.execute(gql(query), variable_values=variables)
+
+            # print(result)
+
+            if not result or not isinstance(result, dict):
+                logger.warning("Received empty or malformed response: %s", result)
+                raise ValueError("Received empty or malformed response from AniList API.")
+
             return result
+
+        except httpx.HTTPStatusError as e:
+            logger.error("HTTP error: %s (status: %s)", e.response.text, e.response.status_code)
+            raise
+        except httpx.RequestError as e:
+            logger.error("Request error while contacting AniList API: %s", e)
+            raise
         except TransportError as e:
-            logger.error(f"Transport error: {e}")
+            logger.error("Transport error: %s", e)
             raise
         except GraphQLError as e:
-            logger.error(f"GraphQL error: {e}")
+            logger.error("GraphQL execution error: %s", e.message)
             raise
         except Exception as e:
-            logger.error(f"Unexpected error: {e}")
+            logger.exception("Unhandled exception during fetch")
             raise
 
     async def get_anime(self, media_id: int, builder: Optional[MediaQueryBuilder]) -> Optional[AnilistMedia]:
         if not builder:
             builder = self.media_query_builder
+        builder = copy.deepcopy(builder)
         builder.include_anime_fields()
         query = builder.build()
         logger.debug(f"query: \n{query}, media_id: {media_id}")
@@ -63,15 +105,18 @@ class AniListClient:
 
 
     async def search_anime(self, builder: Optional[MediaQueryBuilder], filters: SearchQueryBuilder,
-                        query: Optional[str], page: int = 1, perpage: int = 5) -> List[AnilistMedia]:
+                        query: Optional[str], page: int = 1, perpage: int = 5) -> AnilistSearchResult:
         if not builder:
             builder = self.media_query_builder
+        builder = copy.deepcopy(builder)
+        filters = copy.deepcopy(filters)
         builder.include_anime_fields()
         if query:
             variables = {"page": page, "perpage": perpage, "query": query}
         else:
             variables = {"page": page, "perpage": perpage}
         filters.set_type(MediaType.ANIME)
+
         search_query = filters.build(builder)
         # logger.debug(f"query: \n{search_query}")
         result = await self.fetch(search_query, variables)
@@ -89,6 +134,7 @@ class AniListClient:
     async def get_manga(self, media_id: int, builder: Optional[MediaQueryBuilder]) -> AnilistMedia:
         if not builder:
             builder = self.media_query_builder
+        builder = copy.deepcopy(builder)
         builder.include_manga_fields()
         query = builder.build()
         result = await self.fetch(query)
@@ -96,9 +142,11 @@ class AniListClient:
         return manga
 
     async def search_manga(self, builder: Optional[MediaQueryBuilder], filters: SearchQueryBuilder,
-                        query: Optional[str], page: int = 1, perpage: int = 5) -> List[AnilistMedia]:
+                        query: Optional[str], page: int = 1, perpage: int = 5) -> AnilistSearchResult:
         if not builder:
             builder = self.media_query_builder
+        builder = copy.deepcopy(builder)
+        filters = copy.deepcopy(filters)
         builder.include_manga_fields()
         if query:
             variables = {"page": page, "perpage": perpage, "query": query}
@@ -160,21 +208,21 @@ class AniListClient:
         relations = result.get("data", {}).get("AnilistMedia", {}).get("relations", {}).get("edges", [])
         return [parse_relation(relation, media_id) for relation in relations]
 
-    async def get_trending(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+    async def get_trending(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5)->AnilistSearchResult:
         search_query = SearchQueryBuilder().set_sort(MediaSort.TRENDING_DESC)
         if media_type == MediaType.ANIME:
             return await self.search_anime(fields, search_query, None, page, per_page)
         else:
             return await self.search_manga(fields, search_query, None, page, per_page)
 
-    async def get_top_popular(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+    async def get_top_popular(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5)->AnilistSearchResult:
         search_query = SearchQueryBuilder().set_sort(MediaSort.POPULARITY_DESC)
         if media_type == MediaType.ANIME:
             return await self.search_anime(fields, search_query, None, page, per_page)
         else:
             return await self.search_manga(fields, search_query, None, page, per_page)
 
-    async def get_top_rated(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+    async def get_top_rated(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5)->AnilistSearchResult:
         search_query = SearchQueryBuilder().set_sort(MediaSort.SCORE_DESC)
         if media_type == MediaType.ANIME:
             search_query.set_episodes_range(5)
@@ -185,7 +233,7 @@ class AniListClient:
             search_query.set_score_range(80, 99)
             return await self.search_manga(fields, search_query, None, page, per_page)
 
-    async def get_latest(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5):
+    async def get_latest(self, fields: MediaQueryBuilder, media_type: MediaType, page: int = 1, per_page: int = 5)->AnilistSearchResult:
         search_query = SearchQueryBuilder().set_sort(MediaSort.START_DATE_DESC).set_status([MediaStatus.RELEASING,])
         # print("search_query:", search_query.build(fields))
         if media_type == MediaType.ANIME:
@@ -226,6 +274,9 @@ if __name__ == '__main__':
         search_query_builder = SearchQueryBuilder()
         anilist = AniListClient()
         await anilist.connect()
+
+        search_query_builder.set_episodes_range(10000, 20000)
+        task1 = asyncio.create_task(anilist.search_manga(media_query_builder, search_query_builder,  None))
         # data = await anilist.search_anime(media_query_builder, search_query_builder, None, page=1, perpage=20)
 
         # print(len(data))
@@ -234,7 +285,7 @@ if __name__ == '__main__':
         #           f", idMal: {media.idMal}, info: {media.info}, dates: {media.startDate},")
         # # await anilist.get_anime(1, media_query_builder)
 
-        task1 = asyncio.create_task(anilist.get_top_popular(media_query_builder, MediaType.MANGA, 1, 1))
+        # task1 = asyncio.create_task(anilist.get_top_popular(media_query_builder, MediaType.MANGA, 1, 1))
         result = await task1
         pprint(result)
 

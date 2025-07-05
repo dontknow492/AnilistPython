@@ -86,7 +86,7 @@ def parse_tag(tag_data: Optional[dict], media_id: int) -> Optional[AnilistTag]:
         name=tag_data.get("name"),
         description=tag_data.get("description"),
         category=tag_data.get("category"),
-        is_adult=tag_data.get("isAdult")
+        isAdult=tag_data.get("isAdult")
     )
 
 def parse_studio(studio_data: Optional[dict], media_id: int) -> Optional[AnilistStudio]:

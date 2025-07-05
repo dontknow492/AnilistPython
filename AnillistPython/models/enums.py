@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Optional
 
 
-class StrEnum(Enum):
+class MyStrEnum(Enum):
     @classmethod
     def from_str(cls, value: Optional[str]):
         try:
@@ -10,16 +10,16 @@ class StrEnum(Enum):
         except (TypeError, ValueError):
             return None
 
-    def __str__(self):
-        value = self.value
-        return value.replace("_", " ").title()
+    # def __str__(self):
+    #     value = self.value
+    #     return value.replace("_", " ").title()
 
-class MediaType(StrEnum):
+class MediaType(MyStrEnum):
     ANIME = 'ANIME'
     MANGA = 'MANGA'
 
 
-class MediaFormat(StrEnum):
+class MediaFormat(MyStrEnum):
     TV = "TV"  # Anime broadcast on television
     TV_SHORT = "TV_SHORT"  # Under 15 minutes, TV broadcast
     MOVIE = "MOVIE"  # Theatrical release
@@ -32,7 +32,7 @@ class MediaFormat(StrEnum):
     ONE_SHOT = "ONE_SHOT"  # Single-chapter manga
 
 
-class MediaStatus(StrEnum):
+class MediaStatus(MyStrEnum):
     FINISHED = "FINISHED"  # Completed
     RELEASING = "RELEASING"  # Ongoing
     NOT_YET_RELEASED = "NOT_YET_RELEASED"  # Upcoming
@@ -40,14 +40,14 @@ class MediaStatus(StrEnum):
     HIATUS = "HIATUS"  # Temporarily paused (v2 only)
 
 
-class MediaSeason(StrEnum):
+class MediaSeason(MyStrEnum):
     WINTER = "WINTER"  # December to February
     SPRING = "SPRING"  # March to May
     SUMMER = "SUMMER"  # June to August
     FALL = "FALL"      # September to November
 
 
-class MediaSource(StrEnum):
+class MediaSource(MyStrEnum):
     ORIGINAL = "ORIGINAL"               # Not based on another work
     MANGA = "MANGA"                     # Asian comic book
     LIGHT_NOVEL = "LIGHT_NOVEL"         # Written in volumes
@@ -65,13 +65,13 @@ class MediaSource(StrEnum):
     PICTURE_BOOK = "PICTURE_BOOK"       # Illustrated books
 
 
-class CharacterRole(StrEnum):
+class CharacterRole(MyStrEnum):
     MAIN = "MAIN"            # A primary character role in the media
     SUPPORTING = "SUPPORTING"  # A supporting character role in the media
     BACKGROUND = "BACKGROUND"  # A background character in the media
 
 
-class MediaRelation(StrEnum):
+class MediaRelation(MyStrEnum):
     """Relations between media entries (e.g. sequel, adaptation)."""
 
     ADAPTATION = "ADAPTATION"

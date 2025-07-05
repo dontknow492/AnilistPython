@@ -1,6 +1,16 @@
 from datetime import datetime
 from typing import Optional
 from AnillistPython.models import AnilistCharacter
+from AnillistPython.models.media import AnilistPageInfo
+
+
+def parse_page_info(page_dict: dict) -> AnilistPageInfo:
+    return AnilistPageInfo(
+        total=page_dict.get('total', 0),
+        currentPage=page_dict.get('currentPage', 1),
+        lastPage=page_dict.get('lastPage', 1),
+        hasNextPage=page_dict.get('hasNextPage', False),
+    )
 
 def parse_date(date_dict: Optional[dict]) -> Optional[datetime]:
     if not date_dict:
