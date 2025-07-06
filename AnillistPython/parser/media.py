@@ -2,11 +2,12 @@ import json
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any, Set
+from typing import Optional, Dict, Any, Set, List
 
+# from AnillistPython import MediaGenre
 from AnillistPython.models import  AnilistRelation, AnilistRecommendation, AnilistScore, MediaCoverImage, AnilistMediaCharacter, AnilistMedia, AnilistTitle, \
     AnilistMediaInfo, MediaFormat, MediaSource, MediaSeason, MediaStatus, MediaRelation, CharacterRole, AnilistCharacter, AnilistTag, AnilistStudio,\
-    AnilistMediaBase, MediaType
+    AnilistMediaBase, MediaType, MediaGenre
 from AnillistPython.models.media import AnilistMediaTrailer, AnilistEpisode
 
 
@@ -77,6 +78,15 @@ def parse_media_info(info_data: Optional[dict], media_id: int) -> Optional[Anili
         season=MediaSeason.from_str(info_data.get("season")),
         status=MediaStatus.from_str(info_data.get("status")),
     )
+
+def parse_genres(genres: List[str])-> List[MediaGenre]:
+    if not genres:
+        return []
+    genre_list = []
+    for genre in genres:
+        genre_list.append(MediaGenre.from_str(genre))
+    return genre_list
+
 
 def parse_tag(tag_data: Optional[dict], media_id: int) -> Optional[AnilistTag]:
     if not tag_data:
@@ -167,7 +177,7 @@ def parse_media_base(
         coverImage=image,
         bannerImage=media_data.get("bannerImage"),
         description=media_data.get("description"),
-        genres=media_data.get("genres"),
+        genres=parse_genres(media_data.get("genres")),
         score=score,
         info=info,
         synonyms=media_data.get("synonyms"),

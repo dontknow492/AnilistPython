@@ -128,7 +128,7 @@ class MediaSort(Enum):
     FAVOURITES = "FAVOURITES"
     FAVOURITES_DESC = "FAVOURITES_DESC"
 
-class MediaGenre(Enum):
+class MediaGenre(MyStrEnum):
     ACTION = "Action"
     ADVENTURE = "Adventure"
     COMEDY = "Comedy"

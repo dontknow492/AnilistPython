@@ -3,7 +3,8 @@ from enum import Enum
 from typing import Optional, List
 
 from AnillistPython.models.common import AnilistTitle, AnilistTag, AnilistStudio, AnilistCharacter
-from AnillistPython.models.enums import MediaType, MediaFormat, MediaSeason, MediaSource, MediaStatus, CharacterRole, MediaRelation
+from AnillistPython.models.enums import (MediaType, MediaFormat, MediaSeason, MediaSource, MediaStatus, CharacterRole,
+                                         MediaGenre, MediaRelation)
 from dataclasses import dataclass
 
 
@@ -64,7 +65,7 @@ class AnilistMediaBase:
     synonyms: Optional[List[str]] = None
 
     tags: Optional[List[AnilistTag]] = None
-    genres: Optional[List[str]] = None
+    genres: Optional[List[MediaGenre]] = None
     studios: Optional[List[AnilistStudio]] = None
 
     score: Optional[AnilistScore] = None
