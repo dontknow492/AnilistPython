@@ -100,6 +100,7 @@ class AniListClient:
         query = builder.build()
         logger.debug(f"query: \n{query}, media_id: {media_id}")
         result = await self.fetch(query, variables={"id": media_id})
+        logger.debug(f"result: {result}, media_id: {media_id}")
         anime = parse_graphql_media_data(result, MediaType.ANIME)
         return anime
 
@@ -275,23 +276,7 @@ if __name__ == '__main__':
         anilist = AniListClient()
         await anilist.connect()
 
-        search_query_builder.set_episodes_range(10000, 20000)
-        task1 = asyncio.create_task(anilist.search_manga(media_query_builder, search_query_builder,  None))
-        # data = await anilist.search_anime(media_query_builder, search_query_builder, None, page=1, perpage=20)
-
-        # print(len(data))
-        # for media in data:
-        #     logger.info(f"Id: {media.id}, Title: {media.title}, Genres: {media.genres}, Score: {media.score}, Description: {media.description[:10]}"
-        #           f", idMal: {media.idMal}, info: {media.info}, dates: {media.startDate},")
-        # # await anilist.get_anime(1, media_query_builder)
-
-        # task1 = asyncio.create_task(anilist.get_top_popular(media_query_builder, MediaType.MANGA, 1, 1))
-        result = await task1
-        pprint(result)
-
-        # print(await anilist.get_latest(media_query_builder, MediaType.ANIME, 1, 1))
-        # print(await anilist.get_trending(media_query_builder, MediaType.ANIME, 1, 1))
-        # print(await anilist.get_latest(media_query_builder, MediaType.ANIME, 1, 1))
-        # print(await anilist.get_latest(media_query_builder, MediaType.ANIME, 1, 1))
+        anime = await anilist.get_anime(1, media_query_builder)
+        print(anime)
 
     asyncio.run(main())

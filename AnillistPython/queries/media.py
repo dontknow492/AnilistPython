@@ -212,6 +212,11 @@ class MediaQueryBuilderBase:
         self.fields.append("""
             episodes
             duration""")
+        self.fields.append("""
+            nextAiringEpisode {
+                airingAt
+                timeUntilAiring
+                episode}""")
         return self
 
     def include_manga_fields(self):

@@ -130,6 +130,13 @@ def parse_episode(streaming_data: Optional[dict], media_id: int) -> Optional[Ani
         official_site=streaming_data.get('site'),
     )
 
+def parse_next_airing_episode(next_airing_episode_data: Optional[dict]):
+    if not next_airing_episode_data:
+        return None
+    return {"airingAt": next_airing_episode_data.get('airingAt'),
+            "timeUntilAiring": next_airing_episode_data.get('timeUntilAiring'),
+            "episode": next_airing_episode_data.get('episode')}
+
 def parse_media_base(
     media_data: Dict[str, Any],
     media_type: MediaType = None,
@@ -169,6 +176,11 @@ def parse_media_base(
             if (studio_data := parse_studio(studio, media_id)):
                 studio_list.append(studio_data)
 
+    next_airing_episode_info = parse_next_airing_episode(media_data.get("nextAiringEpisode"))
+    episodes = media_data.get("episodes")
+    if not episodes:
+        episodes = next_airing_episode_info.get("episode") - 1 if next_airing_episode_info else None
+
     return AnilistMediaBase(
         id=media_id,
         idMal=media_data.get("idMal"),
@@ -190,9 +202,13 @@ def parse_media_base(
         siteUrl=media_data.get("siteUrl"),
         isAdult=media_data.get("isAdult"),
         duration=media_data.get("duration"),
-        episodes=media_data.get("episodes"),
+        episodes=episodes,
         chapters=media_data.get("chapters"),
         volumes=media_data.get("volumes"),
+        next_episode = next_airing_episode_info.get("episode") if next_airing_episode_info else None,
+        next_episode_airing_at = next_airing_episode_info.get("airingAt") if next_airing_episode_info else None,
+        time_until_next_episode = next_airing_episode_info.get("timeUntilAiring") if next_airing_episode_info else None,
+
     )
 
 def parse_relation(relation_data: Optional[dict], media_id: int, fields: Optional[Set[str]] = None) -> Optional['AnilistRelation']:
@@ -265,9 +281,9 @@ def parse_media(
     )
 
 def parse_graphql_media_data(graphql_media_data: Dict[str, Any], media_type: MediaType) -> Optional[AnilistMedia]:
-    media_data = graphql_media_data.get("data", {}).get("AnilistMedia")
+    media_data = graphql_media_data.get("data", {}).get("Media") or graphql_media_data.get("Media")
     if not media_data:
-        print("'AnilistMedia' not found trying to fetch 'media'")
+        print("'Media' not found trying to fetch 'media'")
         media_data = graphql_media_data.get("data", {}).get("media")
     if not media_data:
         print("media data is empty")

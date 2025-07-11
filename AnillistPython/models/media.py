@@ -29,8 +29,8 @@ class MediaCoverImage:
 @dataclass
 class AnilistScore:
     id: int #media id
-    popularity: Optional[float] = None
-    favourites: Optional[float] = None
+    popularity: Optional[int] = None
+    favourites: Optional[int] = None
     average_score: Optional[int] = None
     mean_score: Optional[int] = None
 
@@ -88,7 +88,11 @@ class AnilistMediaBase:
     siteUrl: Optional[str] = None
     idMal: Optional[int] = None
     # todo: update query builder, parser for bellow data
-    media_type: Optional[MediaType] = None
+    media_type: Optional[MediaType] = None,
+
+    next_episode: Optional[int] = None,
+    next_episode_airing_at: Optional[int] = None,
+    time_until_next_episode: Optional[int] = None
 
 
 @dataclass
