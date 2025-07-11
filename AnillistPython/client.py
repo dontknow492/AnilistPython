@@ -59,7 +59,12 @@ class AniListClient:
             raise
 
     async def close(self):
-        await self.client.close_async()
+        try:
+            await self.transport.client.aclose()
+        except AttributeError as e:
+            logger.error(f"Client never initialized: {e}")
+        except:
+            raise
 
     async def fetch(self, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if not self.session:
